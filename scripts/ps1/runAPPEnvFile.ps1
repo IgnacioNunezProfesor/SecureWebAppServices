@@ -70,26 +70,11 @@ if (-not (Test-EnvVars -envVars $envVars -requiredVars $requiredVars)) {
 Write-Host "Environment variables validated successfully."
 
 # Store container/network info for cleanup
-$script:containerName = $envVars.HTTP_CONTAINER_NAME
+$script:containerName = $envVars.DOCKER_CONTAINER_NAME
 $script:networkName = $envVars.NETWORK_NAME
 
 try {
-    # ============================================================================
-    # Register Application
-    # ============================================================================
-    Write-Host "Registering application: $($envVars.APP_NAME)..."
-    & .\scripts\AdminApp.ps1 -add `
-        -Name $envVars.APP_NAME `
-        -Url $envVars.APP_GITHUB_URL `
-        -Path $envVars.APP_LOCAL_PATH `
-        -Branch $envVars.APP_GITHUB_BRANCH
-
-    if (-not $?) {
-        Write-Error "Failed to register application"
-        Clear-Containers -reason "Application registration failed"
-        exit 1
-    }
-
+   
     # ============================================================================
     # Start Docker Containers
     # ============================================================================
@@ -98,10 +83,10 @@ try {
     # ============================================================================
     # Validate Docker Compose File
     # ============================================================================
-    Write-Host "Validating docker-compose file: $($envVars.APP_COMPOSE_PATH)" -ForegroundColor Yellow
+    Write-Host "Validating docker-compose file: $($envVars.DOCKER_COMPOSE_FILE)" -ForegroundColor Yellow
 
     $composeCheck = Invoke-DockerCommand `
-        -Command "compose -f `"$($envVars.APP_COMPOSE_PATH)`" --env-file `"$EnvFile`" config" `
+        -Command "compose -f `"$($envVars.DOCKER_COMPOSE_FILE)`" --env-file `"$EnvFile`" config" `
         -ErrorMessage "Docker Compose validation failed"
 
     if (-not $composeCheck) {
@@ -113,7 +98,7 @@ try {
     Write-Host "Docker Compose file validated successfully." -ForegroundColor Green
 
 
-    Invoke-DockerCommand -Command "compose -f `"$($envVars.APP_COMPOSE_PATH)`" --env-file `"$EnvFile`" up -d --build" `
+    Invoke-DockerCommand -Command "compose -f `"$($envVars.DOCKER_COMPOSE_FILE)`" --env-file `"$EnvFile`" up -d --build" `
         -ErrorMessage "Failed to start Docker containers"
 
     Write-Host "Containers started successfully." -ForegroundColor Green
@@ -122,7 +107,7 @@ try {
     # ============================================================================
     # Find Container
     # ============================================================================
-    $containerName = $envVars.HTTP_CONTAINER_NAME
+    $containerName = $envVars.DOCKER_CONTAINER_NAME
     Write-Host "Searching for container: $containerName"
 
     $psOutput = Invoke-DockerCommand -Command "ps --filter `"name=^$containerName`$`" --format `"{{.ID}}`"" `
