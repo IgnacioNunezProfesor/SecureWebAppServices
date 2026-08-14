@@ -1,0 +1,87 @@
+function Get-EnvVarsFromFile {
+    param(
+        [Parameter(Mandatory)]
+        [string]$envFile
+    )
+
+    if (-not (Test-Path $envFile)) {
+        Write-Error "Env file '$envFile' not found."
+        exit 1
+    }
+
+    $envVars = @{}
+
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^\s*([^=]+)=(.*)$') {
+            $envVars[$matches[1]] = $matches[2]
+        }
+    }
+
+    return $envVars
+}
+
+function Get-EnvVarsByPrefix {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$envVars,
+        [Parameter(Mandatory)]
+        [string]$prefix
+    )
+
+    $filtered = @{}
+
+    foreach ($item in $envVars.GetEnumerator()) {
+        if ($item.Key -like "$prefix*") {
+            $filtered[$item.Key] = $item.Value
+        }
+    }
+
+    return $filtered
+}
+
+function EnvVarsToBuildArgs {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$envVars
+    )
+    if ($envVars.Count -eq 0) { return @() }
+
+    $arg = @()
+    foreach ($key in $envVars.Keys) {
+        $arg += @("--build-arg", "$key=$($envVars[$key])")
+    }
+
+    return $arg
+}
+
+function Test-EnvVars {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$envVars,
+        [Parameter(Mandatory)]
+        [string[]]$requiredVars
+    )
+
+    $missing = @()
+    $empty = @()
+
+    foreach ($var in $requiredVars) {
+        if (-not $envVars.ContainsKey($var)) {
+            $missing += $var
+        } elseif ([string]::IsNullOrWhiteSpace($envVars[$var])) {
+            $empty += $var
+        }
+    }
+
+    if ($missing.Count -gt 0 -or $empty.Count -gt 0) {
+        if ($missing.Count -gt 0) {
+            Write-Error "Missing environment variables: $($missing -join ', ')"
+        }
+        if ($empty.Count -gt 0) {
+            Write-Error "Empty environment variables: $($empty -join ', ')"
+        }
+        return $false
+    }
+
+    return $true
+}
